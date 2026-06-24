@@ -15,6 +15,7 @@ import AShareStrategyView from './components/AShareStrategyView.jsx'
 import TrafficDashboard from './components/TrafficDashboard.jsx'
 import { shareCard } from './shareCard.js'
 import ThesisView from './components/ThesisView.jsx'
+import NarrativeCheckView from './components/NarrativeCheckView.jsx'
 import HomeFeed from './components/HomeFeed.jsx'
 import SectorsView from './components/SectorsView.jsx'
 
@@ -303,7 +304,7 @@ const WATCHLIST_KEY = 'sp_custom_watchlist'
 function initialRoute() {
   try {
     const p = new URLSearchParams(window.location.search)
-    const VIEWS = ['stocks', 'thesis', 'sectors', 'chain', 'earnings', 'academy', 'daily', 'traffic',
+    const VIEWS = ['stocks', 'thesis', 'narrative', 'sectors', 'chain', 'earnings', 'academy', 'daily', 'traffic',
       ...(FEATURES.portfolio ? ['portfolio'] : []),
       ...(FEATURES.quant ? ['quant'] : []),
       ...(FEATURES.ashare ? ['ashare'] : []),
@@ -467,6 +468,7 @@ export default function App() {
           <button className={view === 'stocks' && !focus ? 'active' : ''} onClick={() => { setFocus(false); setView('stocks') }}>个股分析</button>
           {SHOW_PORTFOLIO && <button className={view === 'portfolio' ? 'active' : ''} onClick={() => setView('portfolio')}>持仓</button>}
           <button className={view === 'thesis' ? 'active' : ''} onClick={() => setView('thesis')}>论点拆解</button>
+          <button className={view === 'narrative' ? 'active' : ''} onClick={() => setView('narrative')}>叙事验证</button>
           <button className={view === 'sectors' || view === 'chain' ? 'active' : ''} onClick={() => setView('sectors')}>产业链图谱</button>
           {FEATURES.quant && <button className={view === 'quant' ? 'active' : ''} onClick={() => setView('quant')}>量化组合</button>}
           {FEATURES.ashare && <button className={view === 'ashare' ? 'active' : ''} onClick={() => setView('ashare')}>低波蓝筹</button>}
@@ -489,6 +491,7 @@ export default function App() {
       {view === 'daily' && <NewsletterView />}
       {view === 'traffic' && <TrafficDashboard />}
       {view === 'thesis' && <ThesisView onOpenStock={(t) => { setView('stocks'); openStock(t) }} />}
+      {view === 'narrative' && <NarrativeCheckView onOpenStock={(t) => { setView('stocks'); openStock(t) }} />}
       {FEATURES.record && view === 'record' && <TrackRecordView />}
       {view === 'sectors' && <SectorsView onOpenStock={(t) => { setView('stocks'); openStock(t) }} onOpenLiveAI={() => setView('chain')} />}
       {view === 'quiz' && (

@@ -638,6 +638,27 @@ def thesis_endpoint(q: str):
     return res
 
 
+@app.post("/api/narrative")
+def narrative_endpoint(body: dict = Body(...)):
+    """叙事验证器：粘一条 KOL 荐股叙事 + A股代码 → 真伪核验卡（数据接地、不构成投资建议）。"""
+    from .analysis.narrative import build_card, enabled
+    if not enabled():
+        raise HTTPException(503, "叙事验证需要 AI（未配置 ANTHROPIC_API_KEY）")
+    ticker = (body.get("ticker") or "").strip()
+    text = (body.get("text") or "").strip()
+    if not ticker or not text:
+        raise HTTPException(422, "需要 ticker（A股代码）和 text（叙事原文）")
+    card = build_card(text, ticker)
+    if not card.get("ok"):
+        stage, err = card.get("stage"), card.get("error")
+        if stage == "input":
+            raise HTTPException(422, err)
+        if stage == "config" or err == "budget_exhausted":
+            raise HTTPException(503, "AI 暂不可用或今日预算已用尽，稍后再试")
+        raise HTTPException(502, f"核验失败（{stage}）：{err}")
+    return card
+
+
 def _resolve_ticker(q: str) -> str:
     """把用户输入解析成 yfinance 代码：6 位 A股代码自动补市场后缀，中文名反查。"""
     import re
