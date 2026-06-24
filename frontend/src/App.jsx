@@ -467,12 +467,9 @@ export default function App() {
           )}
           <button className={view === 'stocks' && !focus ? 'active' : ''} onClick={() => { setFocus(false); setView('stocks') }}>个股分析</button>
           {SHOW_PORTFOLIO && <button className={view === 'portfolio' ? 'active' : ''} onClick={() => setView('portfolio')}>持仓</button>}
-          <button className={view === 'thesis' ? 'active' : ''} onClick={() => setView('thesis')}>论点拆解</button>
-          <button className={view === 'narrative' ? 'active' : ''} onClick={() => setView('narrative')}>叙事验证</button>
           <button className={view === 'sectors' || view === 'chain' ? 'active' : ''} onClick={() => setView('sectors')}>产业链图谱</button>
           {FEATURES.quant && <button className={view === 'quant' ? 'active' : ''} onClick={() => setView('quant')}>量化组合</button>}
           {FEATURES.ashare && <button className={view === 'ashare' ? 'active' : ''} onClick={() => setView('ashare')}>低波蓝筹</button>}
-          <button className={view === 'earnings' ? 'active' : ''} onClick={() => setView('earnings')}>财报拆解</button>
           <button className={view === 'academy' ? 'active' : ''} onClick={() => setView('academy')}>学堂</button>
           {!IS_RENHUAGU && (
             <button className={view === 'daily' ? 'active' : ''} onClick={() => setView('daily')}>日报</button>
