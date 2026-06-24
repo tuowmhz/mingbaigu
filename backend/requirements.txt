@@ -9,3 +9,4 @@ scipy>=1.13
 feedparser>=6.0
 vaderSentiment>=3.3
 requests>=2.32
+baostock>=0.8.8

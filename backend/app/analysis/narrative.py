@@ -164,9 +164,264 @@ def _pct_rank(series: pd.Series, value) -> float | None:
 
 
 # ───────────────────────── B. 取真实证据（Tushare MCP）─────────────────────────
+def _bs_code(ts_code: str) -> str | None:
+    """600519.SH → sh.600519。北交所(.BJ)/非沪深 baostock 不覆盖，返回 None。"""
+    try:
+        num, mkt = ts_code.split(".")
+    except ValueError:
+        return None
+    mkt = mkt.lower()
+    return f"{mkt}.{num}" if mkt in ("sh", "sz") else None
+
+
+def _pct(x):
+    """baostock 比率多为小数(0.91=91%)，统一转百分数。"""
+    v = _num(x)
+    return round(v * 100, 2) if v is not None else None
+
+
+def _with_timeout(fn, seconds, default):
+    """守护线程跑 fn，超时放弃返回 default（baostock 无超时、会死等，必须套这个）。"""
+    import threading
+    box = {}
+
+    def runner():
+        try:
+            box["v"] = fn()
+        except Exception as e:  # noqa: BLE001
+            box["e"] = e
+    t = threading.Thread(target=runner, daemon=True)
+    t.start()
+    t.join(seconds)
+    if t.is_alive() or "e" in box:
+        return default
+    return box.get("v", default)
+
+
+def _bs_rows(rs):
+    out = []
+    while rs.error_code == "0" and rs.next():
+        out.append(dict(zip(rs.fields, rs.get_row_data())))
+    return out
+
+
+def _returns(closes, as_of):
+    """从收盘价序列算涨跌幅/52周位置/均线乖离，接地『涨多了/在底部/突破』类价格叙事。"""
+    c = pd.to_numeric(closes, errors="coerce").dropna().reset_index(drop=True)
+    if len(c) < 2:
+        return {}
+    last = float(c.iloc[-1])
+
+    def ret(n):
+        return round((last / float(c.iloc[-1 - n]) - 1) * 100, 1) if len(c) > n else None
+    win = c.tail(252)
+    hi, lo = float(win.max()), float(win.min())
+    out = {"as_of": as_of, "last_close": round(last, 2),
+           "ret_1m_pct": ret(21), "ret_3m_pct": ret(63), "ret_6m_pct": ret(126), "ret_1y_pct": ret(252),
+           "from_52w_high_pct": round((last / hi - 1) * 100, 1) if hi else None,
+           "from_52w_low_pct": round((last / lo - 1) * 100, 1) if lo else None}
+    if len(c) >= 50:
+        out["vs_ma50_pct"] = round((last / float(c.tail(50).mean()) - 1) * 100, 1)
+    if len(c) >= 200:
+        out["vs_ma200_pct"] = round((last / float(c.tail(200).mean()) - 1) * 100, 1)
+    return out
+
+
+def _baostock_bundle(ts_code: str) -> dict:
+    """默认数据源：baostock（免 token、免费）。覆盖毛利/净利/ROE/净利同比/营收同比/PE/PB/涨跌幅。"""
+    import contextlib
+    import io
+    out = {"ticker": ts_code, "name": None, "industry": None, "as_of": None,
+           "financials": [], "valuation": {}, "sources": [], "error": None}
+    code = _bs_code(ts_code)
+    if not code:
+        out["error"] = "baostock_unsupported_code"
+        return out
+    import baostock as bs
+    with contextlib.redirect_stdout(io.StringIO()):
+        bs.login()
+    try:
+        try:
+            b = _bs_rows(bs.query_stock_basic(code=code))
+            if b:
+                out["name"] = b[0].get("code_name")
+        except Exception as e:
+            out["error"] = f"basic: {type(e).__name__}"
+        by_period: dict = {}
+        try:
+            for year in (2026, 2025, 2024, 2023):
+                for q in (4, 3, 2, 1):
+                    if len(by_period) >= 6:  # 6 季足够看趋势；每季 2 次接口，控总耗时
+                        break
+                    pr = _bs_rows(bs.query_profit_data(code=code, year=year, quarter=q))
+                    if not pr or not pr[0].get("statDate"):
+                        continue
+                    p = pr[0]
+                    sd = p["statDate"]
+                    rec = by_period.setdefault(sd, {"period": sd})
+                    rec.update(gross_margin_pct=_pct(p.get("gpMargin")), net_margin_pct=_pct(p.get("npMargin")),
+                               roe_pct=_pct(p.get("roeAvg")), eps_ttm=_num(p.get("epsTTM")), _mbrev=_num(p.get("MBRevenue")))
+                    gr = _bs_rows(bs.query_growth_data(code=code, year=year, quarter=q))
+                    if gr and gr[0].get("statDate"):
+                        g = gr[0]
+                        rec.update(netprofit_yoy_pct=_pct(g.get("YOYNI")),
+                                   netprofit_attr_yoy_pct=_pct(g.get("YOYPNI")), equity_yoy_pct=_pct(g.get("YOYEquity")))
+            fins = sorted(by_period.values(), key=lambda r: r["period"])
+            rev = {r["period"]: r.get("_mbrev") for r in fins}
+            for r in fins:
+                y, md = r["period"][:4], r["period"][4:]
+                prev = rev.get(f"{int(y)-1}{md}")
+                if prev and r.get("_mbrev"):
+                    r["revenue_yoy_pct"] = round(100.0 * (r["_mbrev"] / prev - 1), 1)
+                r.pop("_mbrev", None)
+            for r in fins[-2:]:  # 现金流/杠杆只补最近 2 期，少打接口
+                y, m = int(r["period"][:4]), int(r["period"][5:7])
+                q = (m + 2) // 3
+                cf = _bs_rows(bs.query_cash_flow_data(code=code, year=y, quarter=q))
+                if cf and cf[0].get("statDate") == r["period"]:
+                    r["cfo_to_np_pct"] = _pct(cf[0].get("CFOToNP"))
+                bal = _bs_rows(bs.query_balance_data(code=code, year=y, quarter=q))
+                if bal and bal[0].get("statDate") == r["period"]:
+                    r["liability_to_asset_pct"] = _pct(bal[0].get("liabilityToAsset"))
+                    r["current_ratio"] = _num(bal[0].get("currentRatio"))
+            out["financials"] = fins
+            if fins:
+                out["as_of"] = fins[-1]["period"]
+                out["sources"].append(f"baostock 财务（截至 {out['as_of']}）")
+        except Exception as e:
+            out["error"] = (out["error"] or "") + f" fin: {type(e).__name__}"
+        try:
+            today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+            kr = _bs_rows(bs.query_history_k_data_plus(
+                code, "date,close,peTTM,pbMRQ", start_date="2020-01-01", end_date=today, frequency="d", adjustflag="3"))
+            if kr:
+                df = pd.DataFrame(kr)
+                last = df.iloc[-1]
+                pe, pb = _num(last.get("peTTM")), _num(last.get("pbMRQ"))
+                out["valuation"] = {"as_of": last.get("date"), "pe_ttm": round(pe, 2) if pe else None,
+                                    "pb": round(pb, 2) if pb else None,
+                                    "pe_pctile_5y": _pct_rank(df["peTTM"], pe), "pb_pctile_5y": _pct_rank(df["pbMRQ"], pb)}
+                out["sources"].append(f"baostock 估值分位（截至 {last.get('date')}）")
+                out["price"] = _returns(df["close"], last.get("date"))
+                if out["price"]:
+                    out["sources"].append(f"baostock 行情涨跌幅（截至 {last.get('date')}）")
+        except Exception as e:
+            out["error"] = (out["error"] or "") + f" val: {type(e).__name__}"
+    finally:
+        with contextlib.redirect_stdout(io.StringIO()):
+            bs.logout()
+    return out
+
+
+def _yf_fin_rows(df) -> list:
+    """yfinance income_stmt/quarterly_income_stmt → [{period,revenue,net_income,gross_profit}] 按期升序。"""
+    if df is None or getattr(df, "empty", True):
+        return []
+
+    def _row(name):
+        try:
+            return df.loc[name] if name in df.index else None
+        except Exception:
+            return None
+    rev, ni, gp = _row("Total Revenue"), _row("Net Income"), _row("Gross Profit")
+    rows = []
+    for col in df.columns:
+        try:
+            period = col.date().isoformat()
+        except Exception:
+            period = str(col)
+        rows.append({"period": period,
+                     "revenue": _num(rev[col]) if rev is not None else None,
+                     "net_income": _num(ni[col]) if ni is not None else None,
+                     "gross_profit": _num(gp[col]) if gp is not None else None})
+    rows.sort(key=lambda r: r["period"])
+    return rows
+
+
+def _yf_evidence(ts_code: str) -> dict:
+    """默认源：yfinance(.SS/.SZ)——已在 prod 工作(与财报拆解同源)、免 token、走 HTTP。
+    覆盖近几期营收/净利同比 + 毛利/净利率、当前 PE/PB/市值、价格涨跌幅/52周位置。
+    yfinance 不提供历史 PE 序列 → 无 5 年估值分位（诚实留空）。"""
+    import yfinance as yf
+    out = {"ticker": ts_code, "name": None, "industry": None, "as_of": None,
+           "financials": [], "valuation": {}, "sources": [], "error": None}
+    try:
+        num, mkt = ts_code.split(".")
+    except ValueError:
+        out["error"] = "bad_code"
+        return out
+    yf_sym = num + (".SS" if mkt.upper() == "SH" else ".SZ")
+    t = yf.Ticker(yf_sym)
+    try:
+        info = t.info or {}
+        out["name"] = info.get("longName") or info.get("shortName")
+        out["industry"] = info.get("sector") or info.get("industry")
+        pe, pb, mv = _num(info.get("trailingPE")), _num(info.get("priceToBook")), _num(info.get("marketCap"))
+        if pe or pb:
+            out["valuation"] = {"pe_ttm": round(pe, 2) if pe else None, "pb": round(pb, 2) if pb else None,
+                                "market_cap": mv, "pe_pctile_5y": None, "pb_pctile_5y": None}
+            out["sources"].append("yfinance 估值（当前 PE/PB，无历史分位）")
+    except Exception as e:
+        out["error"] = f"info: {type(e).__name__}"
+    try:
+        rows = _yf_fin_rows(getattr(t, "quarterly_income_stmt", None))
+        if len(rows) < 4:
+            rows = _yf_fin_rows(getattr(t, "income_stmt", None)) or rows
+        rev_map = {r["period"]: r.get("revenue") for r in rows}
+        ni_map = {r["period"]: r.get("net_income") for r in rows}
+        fins = []
+        for r in rows:
+            rec = {"period": r["period"]}
+            if r.get("revenue") and r.get("gross_profit") is not None:
+                rec["gross_margin_pct"] = round(100.0 * r["gross_profit"] / r["revenue"], 2)
+            if r.get("revenue") and r.get("net_income") is not None:
+                rec["net_margin_pct"] = round(100.0 * r["net_income"] / r["revenue"], 2)
+            py = f"{int(r['period'][:4]) - 1}{r['period'][4:]}"  # 同期去年
+            if rev_map.get(py) and r.get("revenue"):
+                rec["revenue_yoy_pct"] = round(100.0 * (r["revenue"] / rev_map[py] - 1), 1)
+            if ni_map.get(py) and r.get("net_income") is not None and rev_map.get(py):
+                prev = ni_map[py]
+                if prev:
+                    rec["netprofit_yoy_pct"] = round(100.0 * (r["net_income"] / prev - 1), 1)
+            fins.append(rec)
+        out["financials"] = fins[-6:]
+        if fins:
+            out["as_of"] = fins[-1]["period"]
+            out["sources"].append(f"yfinance 财务（截至 {out['as_of']}）")
+    except Exception as e:
+        out["error"] = (out["error"] or "") + f" fin: {type(e).__name__}"
+    try:
+        h = t.history(period="5y", auto_adjust=True)
+        if h is not None and not h.empty:
+            out["price"] = _returns(h["Close"].reset_index(drop=True), str(h.index[-1].date()))
+            if out["price"]:
+                out["sources"].append("yfinance 行情涨跌幅")
+    except Exception:
+        pass
+    return out
+
+
 def _evidence(ticker: str) -> dict:
-    """组装证据包：近 8 季财报关键比率 + PE/PB 及 5 年分位。无 token/取数失败则优雅降级。"""
+    """证据包，三级降级：① yfinance(prod 可达、免 token) → ② baostock(中国 socket，本地更全)
+    → ③ Tushare MCP(需有效 token)。任一拿到财务就用，全失败则返回降级包(主张多判『无法验证』)。"""
     ts_code = normalize_ticker(ticker)
+    try:
+        ev = _yf_evidence(ts_code)
+    except Exception:
+        ev = None
+    if ev and ev.get("financials"):
+        return ev
+    try:
+        ev2 = _with_timeout(lambda: _baostock_bundle(ts_code), 25.0, None)
+    except Exception:
+        ev2 = None
+    if ev2 and ev2.get("financials"):
+        return ev2
+    return _tushare_evidence(ts_code)
+
+
+def _tushare_evidence(ts_code: str) -> dict:
+    """兜底：Tushare MCP（需有效 token）。token 失效/缺失则返回降级包 → 主张多判『无法验证』。"""
     out = {"ticker": ts_code, "name": None, "as_of": None,
            "financials": [], "valuation": {}, "sources": [], "error": None}
     tok = _token()
@@ -341,10 +596,15 @@ def build_card(text: str, ticker: str, selfcheck: bool = True, votes: int = 2) -
     text = (text or "").strip()
     if len(text) < 8:
         return {"ok": False, "stage": "input", "error": "叙事太短，至少写一句完整的看多/看空理由"}
-    ev = _evidence(ticker)
+    ts_code = normalize_ticker(ticker)
+    # evidence(baostock，慢) 与 extract(LLM) 互不依赖，并行跑省一截时间；extract 不强依赖公司名。
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as _ex:
+        f_ev = _ex.submit(_evidence, ticker)
+        f_ext = _ex.submit(_extract, text, ts_code, None)
+        ev = f_ev.result()
+        ext = f_ext.result()
     name = ev.get("name")
-    chain = _find_chain(normalize_ticker(ticker), name)
-    ext = _extract(text, normalize_ticker(ticker), name)
+    chain = _find_chain(ts_code, name)
     if not ext or "_error" in (ext or {}):
         return {"ok": False, "stage": "extract", "error": (ext or {}).get("_error", "extract_failed"),
                 "detail": (ext or {}).get("_detail")}
