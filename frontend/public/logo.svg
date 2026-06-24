@@ -1,0 +1,5 @@
+<svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="明白股">
+  <rect width="256" height="256" rx="58" fill="#14171c"/>
+  <polyline points="64,176 120,140 176,92" fill="none" stroke="#ECEDEF" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="176" cy="92" r="20" fill="#ffb02e"/>
+</svg>

@@ -1,0 +1,7 @@
+# 微调产物(~500MB,build 时本地存在即可,不入库)
+finbert2-zh-sentiment/
+_ckpt/
+# HF 缓存 / 训练中间件
+.hf/
+__pycache__/
+*.pyc

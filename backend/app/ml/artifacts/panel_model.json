@@ -1,0 +1,34 @@
+{
+ "horizon_days": 126,
+ "n_oos": 7769,
+ "n_train": 17020,
+ "ic": 0.1047,
+ "top_tier_hit_rate": 0.5721,
+ "bottom_tier_hit_rate": 0.4702,
+ "sign_accuracy": 0.4932,
+ "beat_base_rate": 0.4932,
+ "long_short_6m_pct": 13.45,
+ "n_universe": 176,
+ "top_features": [
+  {
+   "feature": "vol60",
+   "importance": 0.0437
+  },
+  {
+   "feature": "dist_lo",
+   "importance": 0.0437
+  },
+  {
+   "feature": "mkt_vol",
+   "importance": 0.0306
+  },
+  {
+   "feature": "rk_ret_126",
+   "importance": 0.0267
+  },
+  {
+   "feature": "dist_hi",
+   "importance": 0.0217
+  }
+ ]
+}

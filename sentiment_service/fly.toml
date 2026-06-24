@@ -1,0 +1,21 @@
+# 情感微服务：独立 fly app，新加坡机房，空闲自动休眠省钱。
+# 主站通过 SENTIMENT_URL=http://stockprediction-sentiment.flycast 内网调用。
+app = "stockprediction-sentiment"
+primary_region = "sin"
+
+[build]
+
+[env]
+  PORT = "8001"
+
+[http_service]
+  internal_port = 8001
+  force_https = true
+  auto_stop_machines = "stop"     # 没请求时休眠，零流量零计费
+  auto_start_machines = true
+  min_machines_running = 0        # 想常驻热机（消除冷启动回落）改成 1，但会持续计费
+
+[[vm]]
+  memory = "2gb"                  # 两个 BERT(各~110-125M)+torch，常驻约 1GB
+  cpu_kind = "shared"
+  cpus = 2

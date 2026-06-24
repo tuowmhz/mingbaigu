@@ -1,0 +1,15 @@
+**/.venv
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+.git
+backend/data/portfolio.json
+backend/data/alerts.json
+backend/data/trade_settings.json
+backend/.env
+*.md
+frontend/ios
+frontend/android
+frontend/dist
+frontend/assets
+backend/data/predictions

@@ -1,0 +1,330 @@
+{
+ "status": "ready",
+ "meta": {
+  "generated_at": "2026-06-11 14:57",
+  "n_strategies": 112,
+  "is_period": "2016 ~ 2022",
+  "oos_period": "2023 ~ 今",
+  "universe": "SPY 前 100（含幸存者偏差，绝对收益偏乐观，横向比较仍有效）",
+  "sources": "WorldQuant 101 Formulaic Alphas (arXiv:1601.00991) 风格因子 + Quantopian/QuantConnect/awesome-quant 社区经典策略族"
+ },
+ "analysis": {
+  "families": [
+   {
+    "family": "动量",
+    "n": 18,
+    "is_sharpe_med": 1.002,
+    "oos_sharpe_med": 1.737,
+    "oos_excess_med": 0.087
+   },
+   {
+    "family": "均线趋势",
+    "n": 9,
+    "is_sharpe_med": 1.155,
+    "oos_sharpe_med": 1.705,
+    "oos_excess_med": 0.059
+   },
+   {
+    "family": "风险调整动量",
+    "n": 9,
+    "is_sharpe_med": 1.161,
+    "oos_sharpe_med": 1.694,
+    "oos_excess_med": 0.006
+   },
+   {
+    "family": "风险调整动量+过滤",
+    "n": 3,
+    "is_sharpe_med": 1.105,
+    "oos_sharpe_med": 1.624,
+    "oos_excess_med": -0.067
+   },
+   {
+    "family": "公式因子(101-alphas风格)",
+    "n": 12,
+    "is_sharpe_med": 0.864,
+    "oos_sharpe_med": 1.602,
+    "oos_excess_med": -0.072
+   },
+   {
+    "family": "动量+状态过滤",
+    "n": 18,
+    "is_sharpe_med": 1.034,
+    "oos_sharpe_med": 1.522,
+    "oos_excess_med": -0.002
+   },
+   {
+    "family": "深回撤反弹",
+    "n": 2,
+    "is_sharpe_med": 0.857,
+    "oos_sharpe_med": 1.496,
+    "oos_excess_med": -0.037
+   },
+   {
+    "family": "短期反转",
+    "n": 9,
+    "is_sharpe_med": 0.88,
+    "oos_sharpe_med": 1.481,
+    "oos_excess_med": -0.016
+   },
+   {
+    "family": "Alpha158因子(微软Qlib)",
+    "n": 10,
+    "is_sharpe_med": 0.93,
+    "oos_sharpe_med": 1.362,
+    "oos_excess_med": -0.106
+   },
+   {
+    "family": "动量加速度",
+    "n": 2,
+    "is_sharpe_med": 0.768,
+    "oos_sharpe_med": 1.327,
+    "oos_excess_med": -0.073
+   },
+   {
+    "family": "52周高点+过滤",
+    "n": 2,
+    "is_sharpe_med": 0.835,
+    "oos_sharpe_med": 1.264,
+    "oos_excess_med": -0.143
+   },
+   {
+    "family": "布林带反转",
+    "n": 2,
+    "is_sharpe_med": 0.908,
+    "oos_sharpe_med": 1.253,
+    "oos_excess_med": -0.11
+   },
+   {
+    "family": "52周高点",
+    "n": 2,
+    "is_sharpe_med": 0.803,
+    "oos_sharpe_med": 1.155,
+    "oos_excess_med": -0.153
+   },
+   {
+    "family": "RSI反转",
+    "n": 2,
+    "is_sharpe_med": 1.025,
+    "oos_sharpe_med": 0.88,
+    "oos_excess_med": -0.166
+   },
+   {
+    "family": "低波动+状态过滤",
+    "n": 3,
+    "is_sharpe_med": 0.834,
+    "oos_sharpe_med": 0.821,
+    "oos_excess_med": -0.209
+   },
+   {
+    "family": "低波动",
+    "n": 9,
+    "is_sharpe_med": 0.854,
+    "oos_sharpe_med": 0.765,
+    "oos_excess_med": -0.213
+   }
+  ],
+  "effects": [
+   {
+    "ingredient": "市场状态过滤(QQQ>200日线)",
+    "with_avg": 1.435,
+    "without_avg": 1.468,
+    "lift": -0.033
+   },
+   {
+    "ingredient": "风险调整(除以波动率)",
+    "with_avg": 1.244,
+    "without_avg": 1.533,
+    "lift": -0.289
+   },
+   {
+    "ingredient": "短回看期(<3月)",
+    "with_avg": 1.544,
+    "without_avg": 1.461,
+    "lift": 0.084
+   },
+   {
+    "ingredient": "中回看期(3-6月)",
+    "with_avg": 1.419,
+    "without_avg": 1.461,
+    "lift": -0.041
+   },
+   {
+    "ingredient": "长回看期(≥1年)",
+    "with_avg": 1.42,
+    "without_avg": 1.461,
+    "lift": -0.041
+   },
+   {
+    "ingredient": "更分散(持20只 vs 5-10只)",
+    "with_avg": 1.5,
+    "without_avg": 1.432,
+    "lift": 0.068
+   }
+  ],
+  "is_oos_corr": 0.49,
+  "decay": {
+   "top10_is_avg_is_sharpe": 1.288,
+   "top10_is_avg_oos_sharpe": 1.743,
+   "all_avg_oos_sharpe": 1.461
+  }
+ },
+ "composite": {
+  "recipe": "IS 最优 3 族等权合成：风险调整动量 + 均线趋势 + 风险调整动量+过滤，持 20 只月调仓",
+  "is_sharpe": 1.049,
+  "oos_sharpe": 1.845,
+  "oos_total_return": 1.7744,
+  "qqq_total_return": 1.5544,
+  "oos_months": 40,
+  "oos_percentile": 0.902
+ },
+ "top_oos": [
+  {
+   "family": "动量",
+   "name": "mom21/top10",
+   "is_sharpe": 1.011,
+   "oos_sharpe": 1.962,
+   "oos_cagr": 0.4518,
+   "oos_maxdd": -0.1047
+  },
+  {
+   "family": "均线趋势",
+   "name": "sma200/top20",
+   "is_sharpe": 1.109,
+   "oos_sharpe": 1.956,
+   "oos_cagr": 0.3609,
+   "oos_maxdd": -0.091
+  },
+  {
+   "family": "动量+状态过滤",
+   "name": "mom21/top10/regime",
+   "is_sharpe": 1.303,
+   "oos_sharpe": 1.953,
+   "oos_cagr": 0.4291,
+   "oos_maxdd": -0.1047
+  },
+  {
+   "family": "均线趋势",
+   "name": "sma200/top10",
+   "is_sharpe": 1.235,
+   "oos_sharpe": 1.928,
+   "oos_cagr": 0.5196,
+   "oos_maxdd": -0.1134
+  },
+  {
+   "family": "均线趋势",
+   "name": "sma50/top20",
+   "is_sharpe": 0.923,
+   "oos_sharpe": 1.919,
+   "oos_cagr": 0.3249,
+   "oos_maxdd": -0.0821
+  },
+  {
+   "family": "动量",
+   "name": "mom63/top5",
+   "is_sharpe": 1.151,
+   "oos_sharpe": 1.909,
+   "oos_cagr": 0.5152,
+   "oos_maxdd": -0.138
+  },
+  {
+   "family": "风险调整动量",
+   "name": "sharpe126/top10",
+   "is_sharpe": 1.174,
+   "oos_sharpe": 1.885,
+   "oos_cagr": 0.334,
+   "oos_maxdd": -0.09
+  },
+  {
+   "family": "动量+状态过滤",
+   "name": "mom63/top5/regime",
+   "is_sharpe": 1.043,
+   "oos_sharpe": 1.865,
+   "oos_cagr": 0.4993,
+   "oos_maxdd": -0.138
+  },
+  {
+   "family": "公式因子(101-alphas风格)",
+   "name": "mom_consistency/top20",
+   "is_sharpe": 1.062,
+   "oos_sharpe": 1.863,
+   "oos_cagr": 0.242,
+   "oos_maxdd": -0.0711
+  },
+  {
+   "family": "均线趋势",
+   "name": "sma200/top5",
+   "is_sharpe": 1.301,
+   "oos_sharpe": 1.859,
+   "oos_cagr": 0.6617,
+   "oos_maxdd": -0.1283
+  }
+ ],
+ "top_is_with_oos": [
+  {
+   "family": "均线趋势",
+   "name": "sma100/top10",
+   "is_sharpe": 1.408,
+   "oos_sharpe": 1.523
+  },
+  {
+   "family": "动量",
+   "name": "mom126/top5",
+   "is_sharpe": 1.313,
+   "oos_sharpe": 1.725
+  },
+  {
+   "family": "动量+状态过滤",
+   "name": "mom21/top5/regime",
+   "is_sharpe": 1.307,
+   "oos_sharpe": 1.81
+  },
+  {
+   "family": "动量+状态过滤",
+   "name": "mom21/top10/regime",
+   "is_sharpe": 1.303,
+   "oos_sharpe": 1.953
+  },
+  {
+   "family": "均线趋势",
+   "name": "sma200/top5",
+   "is_sharpe": 1.301,
+   "oos_sharpe": 1.859
+  },
+  {
+   "family": "均线趋势",
+   "name": "sma100/top5",
+   "is_sharpe": 1.286,
+   "oos_sharpe": 1.618
+  },
+  {
+   "family": "风险调整动量+过滤",
+   "name": "sharpe63/top20/regime",
+   "is_sharpe": 1.267,
+   "oos_sharpe": 1.674
+  },
+  {
+   "family": "均线趋势",
+   "name": "sma200/top10",
+   "is_sharpe": 1.235,
+   "oos_sharpe": 1.928
+  },
+  {
+   "family": "动量",
+   "name": "mom63/top10",
+   "is_sharpe": 1.231,
+   "oos_sharpe": 1.73
+  },
+  {
+   "family": "风险调整动量",
+   "name": "sharpe63/top20",
+   "is_sharpe": 1.225,
+   "oos_sharpe": 1.613
+  }
+ ],
+ "honest_notes": [
+  "IS→OOS 夏普的秩相关为 0.49——样本内排名对样本外的预测力中等：方向有参考价值，但具体名次不可信。",
+  "本次 OOS 窗口（2023 至今的大牛市）里几乎所有策略都表现良好（全体平均 OOS 夏普 1.461），样本内前十甚至更好（1.288→1.743）。别误读为'回测可信'——这更多说明单边牛市里水涨船高，真正的考验在下一次熊市。",
+  "全部策略共享同一个幸存者偏差的股票池（今天的 SPY 前 100），绝对收益数字系统性偏乐观；策略之间的横向比较与成分分析仍然有效。",
+  "组合策略的配方只用 IS 数据推导，OOS 只评估一次；成绩是诚实的，但单次实验仍可能是运气。"
+ ]
+}

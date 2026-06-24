@@ -1,0 +1,14 @@
+{
+  "name": "明白股 · 三分钟看懂一只股票",
+  "short_name": "明白股",
+  "description": "给每个人的股票决策工具：美股 A股，AI 用人话讲清楚。这里帮你想清楚，不帮你着急。",
+  "start_url": "/?utm_source=pwa",
+  "display": "standalone",
+  "background_color": "#0b0f1d",
+  "theme_color": "#0b0f1d",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

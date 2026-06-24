@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Env
+.env
+.env.local
+
+# 用户本地数据（持仓/提醒），不上库
+backend/data/portfolio.json
+backend/data/alerts.json
+
+# 测试缓存
+.pytest_cache/
+backend/data/trade_settings.json
+
+# 重量级模型的磁盘缓存（自动重建）
+backend/data/longterm_results.json
+backend/data/chain_us.json
+backend/data/chain_cn.json
+
+# A股量化工作产物（缓存229MB/日志/中间结果，自动重建，不入库；
+# 月度账本在 backend/data/ashare_strategy/ 单独入库并打进镜像）
+backend/app/quant/ashare/cache/
+backend/app/quant/ashare/*.log
+backend/app/quant/ashare/results.json
+backend/app/quant/ashare/widget_data.json
+backend/app/quant/ashare/curves_js.txt
+backend/app/quant/ashare/hedge_results.json
+backend/app/quant/ashare/equity_curves.png
+backend/app/quant/ashare/live_*.json
