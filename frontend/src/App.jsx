@@ -507,7 +507,6 @@ export default function App() {
         <>
           <div className="focus-bar">
             <button className="link-btn" onClick={() => setFocus(false)}>← 返回列表</button>
-            <span className="focus-tag">聚焦分析 · 幻灯片</span>
           </div>
           <div className="slide-stage" key={selected}>
             <StockDetail ticker={selected} onOpenEarnings={openEarnings}
