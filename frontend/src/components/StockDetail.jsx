@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchStock, fetchStockExtras } from '../api/client'
+import { shareCard } from '../shareCard.js'
 import PriceChart from './PriceChart.jsx'
 import ValuePanel from './ValuePanel.jsx'
 
@@ -428,6 +429,66 @@ function EventsPanel({ events }) {
   )
 }
 
+// 一句话体检：把估值×质地×人气×对抗裁决揉成一句有态度、但**完全基于公开数据**的定性。
+// 这不是涨跌预测，是"成色"判断——punchy 但不骗人。
+export function heroVerdict(data) {
+  const f = data.fundamentals || {}, r = data.risk || {}, t = data.tech || {}
+  const j = (data.adversarial || {}).judge || {}
+  const pe = (f.trailing_pe != null && f.trailing_pe > 0) ? f.trailing_pe
+    : (f.forward_pe > 0 ? f.forward_pe : null)
+  const roe = f.return_on_equity, mgn = f.profit_margin, rg = f.revenue_growth
+  const mom = t.momentum_20d, d52 = t.dist_52w_high
+  const ret1y = r.annual_return_1y, dd = r.max_drawdown, vol = r.annual_volatility
+  const P = (x, d = 0) => (x == null ? null : `${x >= 0 ? '' : ''}${(x * 100).toFixed(d)}`)
+
+  const val = pe == null ? null : pe < 15 ? 'cheap' : pe < 28 ? 'fair' : pe < 45 ? 'rich' : 'expensive'
+  const strong = (roe ?? 0) > 0.15 && (mgn ?? 0) > 0.12
+  const weak = (roe != null && roe < 0.05) || (mgn != null && mgn < 0) || (rg != null && rg < -0.05)
+  const qual = strong ? 'strong' : weak ? 'weak' : (roe != null || mgn != null) ? 'ok' : null
+  const cold = (mom != null && mom < -0.02) || (d52 != null && d52 < -0.15) || (ret1y != null && ret1y < -0.05)
+  const hot = (mom != null && mom > 0.05) && (d52 != null && d52 > -0.05)
+
+  let headline
+  if (val === 'cheap' && qual === 'strong') headline = cold ? '好生意、便宜，但市场还没回心转意' : '便宜的好生意'
+  else if (val === 'cheap' && qual === 'weak') headline = '便宜有便宜的道理——质地也在退'
+  else if ((val === 'rich' || val === 'expensive') && qual === 'strong') headline = hot ? '好公司，但价格已经不便宜' : '好公司、贵价，热度还在退'
+  else if ((val === 'rich' || val === 'expensive') && qual === 'weak') headline = '贵得要靠故事撑，数字还没跟上'
+  else if (qual === 'strong') headline = '闷声赚钱的稳健生意'
+  else if (qual === 'weak') headline = cold ? '生意平平，热度还在退' : '生意平平，缺乏亮点'
+  else headline = cold ? '热度退潮中，乏人问津' : '中规中矩，没有明显偏向'
+
+  const facts = []
+  if (pe != null) facts.push(`PE ${pe.toFixed(0)}倍`)
+  if (roe != null) facts.push(`ROE ${P(roe)}%`)
+  if (rg != null) facts.push(`营收${rg >= 0 ? '+' : ''}${P(rg)}%`)
+  if (ret1y != null) facts.push(`近一年${ret1y >= 0 ? '+' : ''}${P(ret1y)}%`)
+
+  let bottom = ''
+  const bp = []
+  if (dd != null) bp.push(`近两年最深跌过 ${Math.abs(dd * 100).toFixed(0)}%`)
+  if (vol != null) bp.push(`年化波动 ${(vol * 100).toFixed(0)}%`)
+  if (bp.length) bottom = `底线：${bp.join('、')}——仓位大小由这两个数字定，不由信心定。`
+
+  return { headline, stance: j.verdict_cn || '中性', verdict: j.verdict || 'neutral',
+           conf: j.confidence_label || '较低', facts: facts.slice(0, 4), bottom }
+}
+
+// 个股体检 → 统一分享卡 spec（出 1080×1440 竖图）
+function stockShareSpec(data) {
+  const h = heroVerdict(data)
+  const code = (data.ticker || '').replace(/\.(SS|SZ|SH|BJ)$/i, '')
+  return {
+    column: '个股体检',
+    headline: h.headline,
+    subhead: `${data.name_cn}（${code}）· 对抗裁决：${h.stance}（置信度${h.conf}）`,
+    viz: null,
+    takeaway: [h.facts.join('　'), h.bottom].filter(Boolean).join('\n'),
+    chips: ['基于真实财报', '非涨跌预测', '不构成投资建议'],
+    cta: '查一只股票，三分钟看懂 · mingbaigu.com',
+    tags: [data.name_cn, '股票', '美股A股'],
+  }
+}
+
 // 把整份个股分析拼成「可直接粘进微信/小红书」的纯文字报告（不依赖出图、传播零摩擦）。
 export function buildShareText(data) {
   const ex = data.explanation || {}
@@ -436,6 +497,8 @@ export function buildShareText(data) {
   const cur = data.currency || '$'
   const code = (data.ticker || '').replace(/\.(SS|SZ|SH|BJ)$/i, '')  // 600519.SS → 600519，美股不变
   const L = [`【${data.name_cn} ${code} · 明白股一页看懂】`]
+  const hv = heroVerdict(data)
+  if (hv.headline) L.push(`一句话：${hv.headline}`)
   if (q.price != null) {
     const up = (q.change_pct ?? 0) >= 0
     L.push(`${cur}${q.price}　${up ? '+' : ''}${q.change_pct}%　截至 ${q.as_of || ''}`)
@@ -469,6 +532,7 @@ export default function StockDetail({ ticker, onOpenEarnings, watched, inFixedLi
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [extras, setExtras] = useState(null)  // 内部人/机构持仓/事件：懒加载，后补
+  const [showAll, setShowAll] = useState(false)  // 极简优先：深度分析默认折叠
 
   useEffect(() => {
     let alive = true
@@ -521,6 +585,30 @@ export default function StockDetail({ ticker, onOpenEarnings, watched, inFixedLi
         </div>
       </div>
 
+      {(() => {
+        const h = heroVerdict(data)
+        return (
+          <div style={{ margin: '14px 0 4px', padding: '18px', borderRadius: 16,
+            border: '1px solid var(--accent)', background: 'rgba(255,176,46,.06)' }}>
+            <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, letterSpacing: '.05em' }}>一句话体检</div>
+            <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.36, margin: '8px 0 2px' }}>{h.headline}</div>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center', margin: '12px 0 6px' }}>
+              <span className={`verdict ${h.verdict}`}>{h.stance}</span>
+              <span style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>置信度{h.conf}</span>
+              {h.facts.map((x, i) => <span key={i} className="company-chip">{x}</span>)}
+            </div>
+            {h.bottom && <div className="judge-notes" style={{ marginTop: 2 }}>{h.bottom}</div>}
+            <div className="judge-notes" style={{ fontSize: 11, marginTop: 8, opacity: .65 }}>
+              基于公开数据的成色体检，不是明天涨跌预测；不构成投资建议。
+            </div>
+            <div className="tx-form" style={{ marginTop: 12 }}>
+              <button className="grad-btn" onClick={() => shareCard(stockShareSpec(data))}>生成体检卡（图）</button>
+              <button className="link-btn" style={{ verticalAlign: 0 }} onClick={() => copyShareText(data)}>复制全文（纯文字）</button>
+            </div>
+          </div>
+        )
+      })()}
+
       {data.pitfalls?.length > 0 && (
         <div style={{ margin: '12px 0 0' }}>
           {data.pitfalls.map((p) => (
@@ -541,11 +629,7 @@ export default function StockDetail({ ticker, onOpenEarnings, watched, inFixedLi
 
       {ex.summary?.length > 0 && (
         <div className="judge-box" style={{ margin: '14px 0 4px', display: 'block' }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>
-            一页看懂
-            <button className="grad-btn" style={{ marginLeft: 8, fontSize: 12.5, padding: '4px 14px', verticalAlign: 1 }}
-              onClick={() => copyShareText(data)}>复制全文 · 发微信/小红书</button>
-          </div>
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>一页看懂</div>
           <div className="explain">
             {ex.summary.map((l, i) => <p key={i} style={{ marginBottom: 6 }}>{l}</p>)}
           </div>
@@ -554,6 +638,12 @@ export default function StockDetail({ ticker, onOpenEarnings, watched, inFixedLi
 
       <PriceChart series={data.series} />
 
+      <div style={{ margin: '12px 0 4px' }}>
+        <button className="link-btn" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? '收起完整分析 ▴' : '展开完整分析：多空对抗 / 消息面 / 风险 / 持仓 …  ▾'}
+        </button>
+      </div>
+      {showAll && (
       <div className="detail-grid">
         <div>
           <Adversarial adv={data.adversarial} />
@@ -577,6 +667,7 @@ export default function StockDetail({ ticker, onOpenEarnings, watched, inFixedLi
           <BankPanel bank={data.bank} />
         </div>
       </div>
+      )}
 
       <div className="disclaimer">{data.disclaimer}</div>
     </div>
