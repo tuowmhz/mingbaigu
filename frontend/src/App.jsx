@@ -482,6 +482,20 @@ export default function App() {
           {alertBanner} <span style={{ opacity: .6, marginLeft: 8 }}>（点击关闭）</span>
         </div>
       )}
+      {view === 'stocks' && !focus && (
+        <div className="hero-search" style={{ margin: '6px 0 14px' }}>
+          <div style={{ fontSize: 15.5, fontWeight: 600, marginBottom: 8 }}>查一只股票，三分钟看懂 ——</div>
+          <div className="search-row">
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && analyzeTicker()}
+              placeholder="贵州茅台 / 600519 / 苹果 / NKE …"
+            />
+            <button onClick={analyzeTicker}>分析</button>
+          </div>
+        </div>
+      )}
       {view === 'stocks' && !focus && <HomeFeed onGo={(v) => setView(v)} />}
       {view === 'stocks' && !focus && <DailyBrief />}
       {view === 'stocks' && !focus && <HeatStrip onAnalyze={(t) => { setView('stocks'); openStock(t) }} />}
@@ -518,16 +532,6 @@ export default function App() {
       ) : (<>
       {showIntro && <IntroHero onClose={closeIntro} onGo={goFeature} />}
       {error && <div className="error">加载失败：{error}（请确认后端已启动）</div>}
-
-      <div className="search-row" style={{ margin: '4px 0 6px' }}>
-        <input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && analyzeTicker()}
-          placeholder="A股美股都能查：600519 / 贵州茅台 / NKE …"
-        />
-        <button onClick={analyzeTicker}>分析</button>
-      </div>
 
       <div className="quick-chips" style={{ margin: '2px 0 8px' }}>
         {[['all', '全部'], ['cn', 'A股'], ['us', '美股']].map(([m, label]) => (

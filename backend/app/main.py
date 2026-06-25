@@ -235,7 +235,7 @@ def track_view(body: dict = Body(...), request: Request = None):
     ip = request.headers.get("Fly-Client-IP") or (request.client.host if request.client else "?")
     track.record(body.get("view", "other"), ip, request.headers.get("User-Agent", "?"),
                  source=body.get("source"), campaign=body.get("campaign"),
-                 event=body.get("event"))
+                 event=body.get("event"), label=body.get("label"))
     return {"ok": True}
 
 
@@ -708,7 +708,11 @@ def summary(ticker: str):
 
 @app.get("/api/stock/{ticker}")
 def stock_detail(ticker: str):
-    ticker = _resolve_ticker(ticker)
+    return _stock_detail_impl(_resolve_ticker(ticker))
+
+
+@cached(300)  # 个股分析缓存 5 分钟（匹配"行情每 5 分钟更新"），重复查看/热门股秒回
+def _stock_detail_impl(ticker: str):
     df = get_history(ticker, period="2y")
     if df is None:
         raise HTTPException(404, f"拿不到 {ticker} 的行情数据")

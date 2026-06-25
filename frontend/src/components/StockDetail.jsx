@@ -428,6 +428,42 @@ function EventsPanel({ events }) {
   )
 }
 
+// 把整份个股分析拼成「可直接粘进微信/小红书」的纯文字报告（不依赖出图、传播零摩擦）。
+export function buildShareText(data) {
+  const ex = data.explanation || {}
+  const j = (data.adversarial || {}).judge || {}
+  const q = data.quote || {}
+  const cur = data.currency || '$'
+  const L = [`【${data.name_cn} ${data.ticker} · 明白股一页看懂】`]
+  if (q.price != null) {
+    const up = (q.change_pct ?? 0) >= 0
+    L.push(`${cur}${q.price}　${up ? '+' : ''}${q.change_pct}%　截至 ${q.as_of || ''}`)
+  }
+  if (j.verdict_cn) {
+    L.push(`\n〔结论〕${j.verdict_cn}　置信度${j.confidence_label || ''}`)
+    ;(j.notes || []).slice(0, 3).forEach((n) => L.push(`· ${n}`))
+  }
+  if ((ex.summary || []).length) {
+    L.push('\n〔一页看懂〕')
+    ex.summary.forEach((l) => L.push(l))
+  }
+  L.push('\n不构成投资建议，决策请独立判断、控制仓位。')
+  L.push(`完整分析 → mingbaigu.com（搜「${data.ticker}」）`)
+  L.push(`#股票 #${data.name_cn} #美股A股`)
+  return L.join('\n')
+}
+
+function copyShareText(data) {
+  const text = buildShareText(data)
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => alert('已复制全文，去微信 / 小红书直接粘贴即可'))
+      .catch(() => window.prompt('长按全选复制后粘贴：', text))
+  } else {
+    window.prompt('长按全选复制后粘贴：', text)
+  }
+}
+
 export default function StockDetail({ ticker, onOpenEarnings, watched, inFixedList, onToggleWatch }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -501,11 +537,8 @@ export default function StockDetail({ ticker, onOpenEarnings, watched, inFixedLi
         <div className="judge-box" style={{ margin: '14px 0 4px', display: 'block' }}>
           <div style={{ fontWeight: 800, marginBottom: 6 }}>
             一页看懂
-            <button className="link-btn" onClick={() => {
-              const text = `【${data.name_cn} ${data.ticker} · 一页看懂】\n` + ex.summary.join('\n')
-                + `\n—— 来自 明白股 https://mingbaigu.com`
-              navigator.clipboard.writeText(text).then(() => alert('已复制，可以直接粘贴分享'))
-            }}>复制分享</button>
+            <button className="grad-btn" style={{ marginLeft: 8, fontSize: 12.5, padding: '4px 14px', verticalAlign: 1 }}
+              onClick={() => copyShareText(data)}>复制全文 · 发微信/小红书</button>
           </div>
           <div className="explain">
             {ex.summary.map((l, i) => <p key={i} style={{ marginBottom: 6 }}>{l}</p>)}

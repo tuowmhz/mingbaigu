@@ -30,8 +30,10 @@ def score_batch(texts: list[str], lang: str) -> dict[str, float] | None:
     if not texts or not available():
         return None
     try:
+        # 超时压到 8s：情绪只是消息面的加分项，绝不能拖慢个股分析主链路。
+        # 服务热时一批标题 CPU 推理约 1–4s 够用；冷/睡了就快速回落词典法。
         r = requests.post(f"{SENTIMENT_URL}/sentiment",
-                          json={"texts": texts, "lang": lang}, timeout=45)
+                          json={"texts": texts, "lang": lang}, timeout=8)
         scores = r.json().get("scores")
         if not scores:
             return None
