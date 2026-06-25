@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchStock } from '../api/client'
+import { fetchStock, fetchStockExtras } from '../api/client'
 import PriceChart from './PriceChart.jsx'
 import ValuePanel from './ValuePanel.jsx'
 
@@ -434,7 +434,8 @@ export function buildShareText(data) {
   const j = (data.adversarial || {}).judge || {}
   const q = data.quote || {}
   const cur = data.currency || '$'
-  const L = [`【${data.name_cn} ${data.ticker} · 明白股一页看懂】`]
+  const code = (data.ticker || '').replace(/\.(SS|SZ|SH|BJ)$/i, '')  // 600519.SS → 600519，美股不变
+  const L = [`【${data.name_cn} ${code} · 明白股一页看懂】`]
   if (q.price != null) {
     const up = (q.change_pct ?? 0) >= 0
     L.push(`${cur}${q.price}　${up ? '+' : ''}${q.change_pct}%　截至 ${q.as_of || ''}`)
@@ -448,7 +449,7 @@ export function buildShareText(data) {
     ex.summary.forEach((l) => L.push(l))
   }
   L.push('\n不构成投资建议，决策请独立判断、控制仓位。')
-  L.push(`完整分析 → mingbaigu.com（搜「${data.ticker}」）`)
+  L.push(`完整分析 → mingbaigu.com（搜「${code}」）`)
   L.push(`#股票 #${data.name_cn} #美股A股`)
   return L.join('\n')
 }
@@ -467,14 +468,19 @@ function copyShareText(data) {
 export default function StockDetail({ ticker, onOpenEarnings, watched, inFixedList, onToggleWatch }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
+  const [extras, setExtras] = useState(null)  // 内部人/机构持仓/事件：懒加载，后补
 
   useEffect(() => {
     let alive = true
     setData(null)
     setError(null)
+    setExtras(null)
     fetchStock(ticker)
       .then((d) => alive && setData(d))
       .catch((e) => alive && setError(e.message))
+    fetchStockExtras(ticker)
+      .then((e) => alive && setExtras(e))
+      .catch(() => {})  // 次要面板拉不到就静默不显示，不影响主分析
     return () => { alive = false }
   }, [ticker])
 
@@ -564,9 +570,9 @@ export default function StockDetail({ ticker, onOpenEarnings, watched, inFixedLi
         <div>
           <NewsSignal signal={data.news?.signal} />
           <RiskStats risk={data.risk} />
-          <EventsPanel events={data.events} />
-          <InsiderPanel insider={data.insider} />
-          <HoldersPanel holders={data.holders} />
+          <EventsPanel events={extras?.events} />
+          <InsiderPanel insider={extras?.insider} />
+          <HoldersPanel holders={extras?.holders} />
           <News news={data.news} />
           <BankPanel bank={data.bank} />
         </div>

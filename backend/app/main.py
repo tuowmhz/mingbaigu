@@ -720,21 +720,17 @@ def _stock_detail_impl(ticker: str):
     name = NAME_MAP.get(ticker, ticker)
 
     # 外部请求并行化
-    with ThreadPoolExecutor(max_workers=7) as ex:
+    # 主分析只拉首屏必需的：新闻/基本面/模型预测/银行（如适用）。
+    # 内部人/机构持仓/事件这些 SEC/期权慢面板拆到 /extras 懒加载，首屏更快。
+    with ThreadPoolExecutor(max_workers=4) as ex:
         f_news = ex.submit(get_news, ticker)
         f_fund = ex.submit(get_fundamentals, ticker)
         f_pred = ex.submit(predict, ticker, as_of)
-        f_insider = ex.submit(get_insider, ticker)
-        f_holders = ex.submit(get_holders, ticker)
-        f_events = ex.submit(get_event_view, ticker)
         f_bank = (ex.submit(get_bank_financials, ticker)
                   if CATEGORY_MAP.get(ticker) == "bank" else None)
         news = _res(f_news)
         fundamentals = _res(f_fund)
         prediction = _res(f_pred)
-        insider = _res(f_insider)
-        holders = _res(f_holders)
-        events = _res(f_events)
         bank = _res(f_bank) if f_bank else None
 
     analyzed = analyze_news(news, ticker)
@@ -771,13 +767,25 @@ def _stock_detail_impl(ticker: str):
         "prediction": prediction,
         "adversarial": adv,
         "bank": bank,
-        "insider": insider,
-        "holders": holders,
-        "events": events,
         "pitfalls": pitfalls,
         "explanation": explanation,
         "disclaimer": DISCLAIMER,
     }
+
+
+@app.get("/api/stock/{ticker}/extras")
+def stock_extras(ticker: str):
+    """次要面板（内部人 / 机构持仓 / 财报日历·期权），与主分析分离、前端懒加载，避免拖慢首屏。"""
+    return _stock_extras_impl(_resolve_ticker(ticker))
+
+
+@cached(600)
+def _stock_extras_impl(ticker: str):
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        f_insider = ex.submit(get_insider, ticker)
+        f_holders = ex.submit(get_holders, ticker)
+        f_events = ex.submit(get_event_view, ticker)
+        return {"insider": _res(f_insider), "holders": _res(f_holders), "events": _res(f_events)}
 
 
 _mount_frontend()

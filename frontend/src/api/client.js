@@ -11,3 +11,5 @@ export const fetchWatchlist = () => get('/api/watchlist')
 // summary/stock 首次分析会训练模型 + FinGPT 逐条打分，给足时间
 export const fetchSummary = (ticker) => get(`/api/summary/${ticker}`, 120000)
 export const fetchStock = (ticker) => get(`/api/stock/${ticker}`, 180000)
+// 次要面板（内部人/机构持仓/事件）懒加载——主分析先出，这些后补
+export const fetchStockExtras = (ticker) => get(`/api/stock/${ticker}/extras`, 90000)
